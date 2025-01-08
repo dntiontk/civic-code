@@ -1,0 +1,4 @@
+github.com/itlightning/dateparse v0.2.0 h1:eOYLGZORnHweKdTZGOVjDXHhOwMQTNdP4g6+ErgPyeg=
+github.com/itlightning/dateparse v0.2.0/go.mod h1:W2PH6/Sq+PuJJ6JUgx2nau+ew1KLGXwoGP1A240x204=
+golang.org/x/net v0.34.0 h1:Mb7Mrk043xzHgnRM88suvJFwzVrRfHEHJEl5/71CKw0=
+golang.org/x/net v0.34.0/go.mod h1:di0qlW3YNM5oh6GqDGQr92MyTozJPmybPK4Ev/Gm31k=

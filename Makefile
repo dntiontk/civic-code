@@ -52,5 +52,5 @@ all: doc-search ## Build all tools
 
 .PHONY: doc-search
 doc-search: fmt vet ## Build doc-search binary
-	GO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/$(DOC_SEARCH_BIN) ./cmd/doc-search/...
-	chmod +x bin/$(DOC_SEARCH_BIN)
+	GO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/doc-search-$(GOOS) ./cmd/doc-search/...
+	chmod +x bin/doc-search-$(GOOS)

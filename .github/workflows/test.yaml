@@ -6,9 +6,8 @@ on:
   workflow_call:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    env:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
