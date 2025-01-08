@@ -1,0 +1,43 @@
+name: build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        GOOS: ['windows', 'linux', 'darwin']
+        include:
+          - GOOS: windows
+            GOARCH: amd64
+          - GOOS: linux
+            GOARCH: amd64
+          - GOOS: darwin
+            GOARCH: arm64
+    runs-on: ubuntu-latest
+    env:
+      GOOS: ${{ matrix.GOOS }}
+      GOARCH: ${{ matrix.GOARCH }}
+      DOC_SEARCH_BIN: doc-search-${{ matrix.GOOS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          check-latest: true
+      - name: build project
+        id: build
+        run: |
+          mkdir -p bin
+          make all
+      - uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: 'error'
+          name: bin
+          path: bin/

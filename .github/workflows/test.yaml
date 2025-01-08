@@ -1,0 +1,19 @@
+name: test
+
+on:
+  push:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          check-latest: true
+      - name: run tests
+        run: |
+          make test
