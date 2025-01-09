@@ -6,6 +6,7 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/test.yaml
+    secrets: inherit
 
   build:
     uses: ./.github/workflows/build.yaml
@@ -37,7 +38,6 @@ jobs:
         with:
           path: dist/
           merge-multiple: true
-
 
       - name: draft release
         id: draft
