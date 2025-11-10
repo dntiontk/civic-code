@@ -2,7 +2,7 @@ package scraper
 
 import (
 	"context"
-	"golang.org/x/net/html"
+	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 // MeetingType defines a meeting with associated search terms
@@ -164,7 +166,11 @@ func getDocumentFromCards(cards []htmlCard) ([]Document, error) {
 			}
 
 			if path.Ext(link) == ".pdf" {
-				docs = append(docs, parseDocument(link, title))
+				doc, err := parseDocument(link, title)
+				if err != nil {
+					return nil, err
+				}
+				docs = append(docs, doc)
 			}
 		}
 	}
@@ -173,11 +179,11 @@ func getDocumentFromCards(cards []htmlCard) ([]Document, error) {
 
 var (
 	dateLayout = "Monday, January 2, 2006"
-	dateRegex  = regexp.MustCompile(`\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{2},\s+\d{4}\b`)
+	dateRegex  = regexp.MustCompile(`\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b`)
 )
 
 // parseDocument returns a Document from a given htmlCard link and title
-func parseDocument(link string, title string) Document {
+func parseDocument(link string, title string) (Document, error) {
 	linkName := path.Base(link)
 	name, err := url.PathUnescape(linkName)
 	if err != nil {
@@ -186,16 +192,26 @@ func parseDocument(link string, title string) Document {
 
 	meetingDate := strings.Split(title, " - ")
 	dateStr := dateRegex.FindString(title)
-	date, _ := time.Parse(dateLayout, dateStr)
+	if dateStr == "" {
+		return Document{}, fmt.Errorf("scraper: could not find meeting date in title %q", title)
+	}
+	date, err := time.Parse(dateLayout, dateStr)
+	if err != nil {
+		return Document{}, fmt.Errorf("scraper: parse meeting date %q: %w", dateStr, err)
+	}
 
-	meeting := GetMeetingType(meetingDate[0])
+	meetingName := title
+	if len(meetingDate) > 0 {
+		meetingName = meetingDate[0]
+	}
+	meeting := GetMeetingType(meetingName)
 	return Document{
 		Link:     link,
 		Meeting:  meeting,
 		Name:     name,
 		Date:     date,
 		RawTitle: title,
-	}
+	}, nil
 }
 
 // getHtmlCards performs a GET request to the upstream and returns a slice of htmlCard.
@@ -210,6 +226,9 @@ func getHtmlCards(ctx context.Context, client *http.Client) ([]htmlCard, error) 
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("scraper: unexpected status code %s", resp.Status)
+	}
 
 	n, err := html.Parse(resp.Body)
 	if err != nil {
