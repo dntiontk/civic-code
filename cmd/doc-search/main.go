@@ -21,6 +21,7 @@ var (
 	docNameFlag     string
 	downloadDirFlag string
 	downloadWorkers int
+	downloadFlag    bool
 )
 
 func main() {
@@ -31,6 +32,7 @@ func main() {
 	flag.StringVar(&docNameFlag, "docName", "", "filter documents with string in name")
 	flag.StringVar(&downloadDirFlag, "downloadDir", "./downloads", "directory to store downloaded PDFs")
 	flag.IntVar(&downloadWorkers, "concurrency", 4, "number of concurrent downloads")
+	flag.BoolVar(&downloadFlag, "download", false, "download matching PDFs to disk")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -69,12 +71,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("scraper: fetched %d documents before filtering", len(docs))
 	for _, filter := range filters {
 		docs = filter(docs)
 	}
+	log.Printf("scraper: %d documents match the provided filters", len(docs))
 
 	var downloadErrors []string
-	if len(docs) > 0 {
+	if downloadFlag && len(docs) > 0 {
+		log.Printf("downloader: starting download of %d documents to %s with concurrency=%d", len(docs), downloadDirFlag, downloadWorkers)
 		if downloadWorkers < 1 {
 			downloadWorkers = 1
 		}
@@ -85,7 +90,14 @@ func main() {
 		if err != nil {
 			log.Printf("download errors: %v", err)
 			downloadErrors = append(downloadErrors, err.Error())
+		} else {
+			for _, doc := range docs {
+				log.Printf("downloader: saved %s (%s)", doc.FileName, doc.Link)
+			}
+			log.Printf("downloader: completed download of %d documents", len(docs))
 		}
+	} else if !downloadFlag {
+		log.Printf("downloader: skipping download (pass -download to enable)")
 	}
 
 	type Result struct {

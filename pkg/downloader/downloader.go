@@ -99,11 +99,21 @@ func DownloadDocuments(ctx context.Context, docs []scraper.Document, destDir str
 }
 
 func downloadOne(ctx context.Context, doc scraper.Document, destDir string) (scraper.Document, error) {
-	fileName := doc.Name
+	doc.ApplyFileNameSchema()
+	fileName := doc.FileName
+
 	if fileName == "" {
-		fileName = filepath.Base(doc.Link)
+		base := filepath.Base(doc.Name)
+		if base == "" || base == "." {
+			base = filepath.Base(doc.Link)
+		}
+		if base == "" || base == "." {
+			return doc, fmt.Errorf("missing file name")
+		}
+		fileName = base
+		doc.FileName = fileName
 	}
-	fileName = filepath.Base(fileName)
+
 	if fileName == "" || fileName == "." {
 		return doc, fmt.Errorf("missing file name")
 	}

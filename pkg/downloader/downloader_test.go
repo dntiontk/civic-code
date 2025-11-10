@@ -11,16 +11,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dntiontk/civic-code/pkg/scraper"
 )
 
 func TestDownloadDocuments_Success(t *testing.T) {
-	const fileName = "agenda.pdf"
+	const remoteFileName = "agenda.pdf"
 	const fileBody = "sample-pdf-content"
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/"+fileName {
+		if r.URL.Path != "/"+remoteFileName {
 			http.NotFound(w, r)
 			return
 		}
@@ -35,12 +36,15 @@ func TestDownloadDocuments_Success(t *testing.T) {
 	destDir := t.TempDir()
 	ctx := context.Background()
 
-	docs := []scraper.Document{
-		{
-			Link: srv.URL + "/" + fileName,
-			Name: fileName,
-		},
+	doc := scraper.Document{
+		Link:    srv.URL + "/" + remoteFileName,
+		Name:    remoteFileName,
+		Meeting: scraper.MeetingType{Code: "CC"},
+		Date:    time.Date(2024, time.March, 15, 0, 0, 0, 0, time.UTC),
 	}
+	doc.ApplyFileNameSchema()
+
+	docs := []scraper.Document{doc}
 
 	updated, err := DownloadDocuments(ctx, docs, destDir, 2)
 	if err != nil {
@@ -57,7 +61,11 @@ func TestDownloadDocuments_Success(t *testing.T) {
 		t.Fatalf("unexpected checksum: got %q want %q", gotChecksum, hex.EncodeToString(wantChecksum[:]))
 	}
 
-	filePath := filepath.Join(destDir, fileName)
+	if updated[0].FileName != doc.FileName {
+		t.Fatalf("unexpected file name: got %q want %q", updated[0].FileName, doc.FileName)
+	}
+
+	filePath := filepath.Join(destDir, doc.FileName)
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("reading downloaded file: %v", err)
@@ -69,14 +77,8 @@ func TestDownloadDocuments_Success(t *testing.T) {
 
 func TestDownloadDocuments_ExistingChecksumSkipsDownload(t *testing.T) {
 	destDir := t.TempDir()
-	const fileName = "existing.pdf"
+	const remoteFileName = "existing.pdf"
 	fileContents := []byte("cached-content")
-
-	if err := os.WriteFile(filepath.Join(destDir, fileName), fileContents, 0o644); err != nil {
-		t.Fatalf("write cached file: %v", err)
-	}
-	sum := sha256.Sum256(fileContents)
-	expectedChecksum := hex.EncodeToString(sum[:])
 
 	origClient := httpClient
 	httpClient = &http.Client{
@@ -87,12 +89,25 @@ func TestDownloadDocuments_ExistingChecksumSkipsDownload(t *testing.T) {
 	t.Cleanup(func() { httpClient = origClient })
 
 	ctx := context.Background()
+	doc := scraper.Document{
+		Link:    "https://example.invalid/" + remoteFileName,
+		Name:    remoteFileName,
+		Meeting: scraper.MeetingType{Code: "CC"},
+		Date:    time.Date(2024, time.February, 10, 0, 0, 0, 0, time.UTC),
+	}
+	doc.ApplyFileNameSchema()
+
+	existingPath := filepath.Join(destDir, doc.FileName)
+	if err := os.WriteFile(existingPath, fileContents, 0o644); err != nil {
+		t.Fatalf("write cached file: %v", err)
+	}
+	sum := sha256.Sum256(fileContents)
+	expectedChecksum := hex.EncodeToString(sum[:])
+
+	doc.Checksum = expectedChecksum
+
 	docs := []scraper.Document{
-		{
-			Link:     "https://example.invalid/" + fileName,
-			Name:     fileName,
-			Checksum: expectedChecksum,
-		},
+		doc,
 	}
 
 	updated, err := DownloadDocuments(ctx, docs, destDir, 1)
@@ -106,7 +121,7 @@ func TestDownloadDocuments_ExistingChecksumSkipsDownload(t *testing.T) {
 }
 
 func TestDownloadDocuments_ChecksumMismatch(t *testing.T) {
-	const fileName = "mismatch.pdf"
+	const remoteFileName = "mismatch.pdf"
 	const fileBody = "remote-content"
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -121,12 +136,17 @@ func TestDownloadDocuments_ChecksumMismatch(t *testing.T) {
 	ctx := context.Background()
 	destDir := t.TempDir()
 
+	doc := scraper.Document{
+		Link:     srv.URL + "/" + remoteFileName,
+		Name:     remoteFileName,
+		Meeting:  scraper.MeetingType{Code: "CC"},
+		Date:     time.Date(2024, time.January, 20, 0, 0, 0, 0, time.UTC),
+		Checksum: "deadbeef",
+	}
+	doc.ApplyFileNameSchema()
+
 	docs := []scraper.Document{
-		{
-			Link:     srv.URL + "/" + fileName,
-			Name:     fileName,
-			Checksum: "deadbeef",
-		},
+		doc,
 	}
 
 	updated, err := DownloadDocuments(ctx, docs, destDir, 2)
@@ -142,7 +162,7 @@ func TestDownloadDocuments_ChecksumMismatch(t *testing.T) {
 	}
 
 	// The file should not be left behind on mismatch.
-	if _, statErr := os.Stat(filepath.Join(destDir, fileName)); !errors.Is(statErr, os.ErrNotExist) {
+	if _, statErr := os.Stat(filepath.Join(destDir, doc.FileName)); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("expected no file on checksum mismatch, got err=%v", statErr)
 	}
 }

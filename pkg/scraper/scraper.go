@@ -71,7 +71,83 @@ type Document struct {
 	Meeting  MeetingType `json:"meeting"`
 	Date     time.Time   `json:"date"`
 	RawTitle string      `json:"rawTitle"`
+	FileName string      `json:"fileName"`
 	Checksum string      `json:"checksum,omitempty"`
+}
+
+// ApplyFileNameSchema normalizes the document file name using the canonical schema.
+func (d *Document) ApplyFileNameSchema() {
+	d.FileName = buildDocumentFileName(*d)
+}
+
+func buildDocumentFileName(doc Document) string {
+	if doc.Date.IsZero() {
+		return ""
+	}
+
+	code := normalizeMeetingCode(doc.Meeting.Code)
+	if code == "" {
+		code = "UNKNOWN"
+	}
+
+	baseName := doc.Name
+	ext := strings.ToLower(path.Ext(baseName))
+	if ext == "" {
+		ext = ".pdf"
+	}
+
+	if ext != "" && len(baseName) > len(ext) {
+		baseName = baseName[:len(baseName)-len(ext)]
+	}
+
+	nameSegment := normalizeFileSegment(baseName)
+	if nameSegment == "" {
+		nameSegment = "document"
+	}
+
+	dateSegment := doc.Date.Format("2006_01_02")
+	return fmt.Sprintf("%s-%s-%s%s", dateSegment, code, nameSegment, ext)
+}
+
+func normalizeMeetingCode(code string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	for _, r := range code {
+		if r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	out := strings.Trim(b.String(), "_")
+	if out == "" {
+		return ""
+	}
+	return out
+}
+
+func normalizeFileSegment(input string) string {
+	input = strings.ToLower(strings.TrimSpace(input))
+	var b strings.Builder
+	lastUnderscore := false
+	for _, r := range input {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastUnderscore = false
+		default:
+			if !lastUnderscore {
+				b.WriteRune('_')
+				lastUnderscore = true
+			}
+		}
+	}
+	out := strings.Trim(b.String(), "_")
+	return out
 }
 
 // FilterFunc is a function type that returns a subset of the input documents.
@@ -206,14 +282,16 @@ func parseDocument(link string, title string) (Document, error) {
 		meetingName = meetingDate[0]
 	}
 	meeting := GetMeetingType(meetingName)
-	return Document{
+	doc := Document{
 		Link:     link,
 		Meeting:  meeting,
 		Name:     name,
 		Date:     date,
 		RawTitle: title,
 		Checksum: "",
-	}, nil
+	}
+	doc.ApplyFileNameSchema()
+	return doc, nil
 }
 
 // getHtmlCards performs a GET request to the upstream and returns a slice of htmlCard.
