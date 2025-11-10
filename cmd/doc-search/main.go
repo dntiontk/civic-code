@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/dntiontk/civic-code/pkg/downloader"
@@ -22,6 +23,7 @@ var (
 	downloadDirFlag string
 	downloadWorkers int
 	downloadFlag    bool
+	timeoutFlag     time.Duration
 )
 
 func main() {
@@ -33,9 +35,18 @@ func main() {
 	flag.StringVar(&downloadDirFlag, "downloadDir", "./downloads", "directory to store downloaded PDFs")
 	flag.IntVar(&downloadWorkers, "concurrency", 4, "number of concurrent downloads")
 	flag.BoolVar(&downloadFlag, "download", false, "download matching PDFs to disk")
+	flag.DurationVar(&timeoutFlag, "timeout", 10*time.Minute, "overall timeout for scraping and downloading (e.g. 1m, 30s); zero disables the timeout")
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if timeoutFlag > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), timeoutFlag)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
 	defer cancel()
 
 	filters := make([]scraper.FilterFunc, 0)
@@ -91,9 +102,6 @@ func main() {
 			log.Printf("download errors: %v", err)
 			downloadErrors = append(downloadErrors, err.Error())
 		} else {
-			for _, doc := range docs {
-				log.Printf("downloader: saved %s (%s)", doc.FileName, doc.Link)
-			}
 			log.Printf("downloader: completed download of %d documents", len(docs))
 		}
 	} else if !downloadFlag {
@@ -112,11 +120,37 @@ func main() {
 		Errors: downloadErrors,
 	}
 
-	enc := json.NewEncoder(os.Stdout)
+	var (
+		output       = os.Stdout
+		metadataFile *os.File
+	)
+	if downloadFlag {
+		if err := os.MkdirAll(downloadDirFlag, 0o755); err != nil {
+			log.Fatal(err)
+		}
+		metadataPath := filepath.Join(downloadDirFlag, "metadata.json")
+		f, err := os.Create(metadataPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		metadataFile = f
+		output = f
+		log.Printf("metadata: writing results to %s", metadataPath)
+	}
+
+	enc := json.NewEncoder(output)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 
 	if err := enc.Encode(res); err != nil {
 		log.Fatal(err)
+	}
+
+	if metadataFile != nil {
+		if err := metadataFile.Close(); err != nil {
+			log.Printf("metadata: failed to close metadata.json: %v", err)
+		} else {
+			log.Printf("metadata: wrote results to %s", metadataFile.Name())
+		}
 	}
 }

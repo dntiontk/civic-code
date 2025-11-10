@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -124,12 +125,15 @@ func downloadOne(ctx context.Context, doc scraper.Document, destDir string) (scr
 		if sum, err := checksumForFile(destPath); err == nil {
 			if sum == doc.Checksum {
 				doc.Checksum = sum
+				log.Printf("downloader: %s already exists with matching checksum; skipping download", fileName)
 				return doc, nil
 			}
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return doc, fmt.Errorf("read existing file checksum: %w", err)
 		}
 	}
+
+	log.Printf("downloader: starting download of %s from %s", fileName, doc.Link)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, doc.Link, nil)
 	if err != nil {
@@ -181,6 +185,7 @@ func downloadOne(ctx context.Context, doc scraper.Document, destDir string) (scr
 	}
 
 	doc.Checksum = sum
+	log.Printf("downloader: finished download of %s (checksum %s)", fileName, sum)
 	return doc, nil
 }
 
