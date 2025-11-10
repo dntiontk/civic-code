@@ -18,6 +18,8 @@ This repository is a suite of tools to enable the [civic code project](https://d
 - Filter documents by a specific date or date range
 - Search documents based on meeting types
 - Filter documents by name or keywords
+- Download matching PDFs concurrently (opt-in via CLI flag)
+  - Saved filenames follow the schema `YYYY_MM_DD-CODE-name.pdf`
 
 #### Installation
 
@@ -48,7 +50,7 @@ GOOS=$(go env GOOS) GOARCH=$(go env GOARCH) go build -o doc-search main.go
 
 #### Usage
 
-The tool supports several flags for filtering documents:
+The tool emits the document metadata (including checksums and normalized filenames) as JSON and can optionally download PDFs to disk. Available flags:
 
 ```
 Usage of bin/doc-search:
@@ -58,11 +60,19 @@ Usage of bin/doc-search:
         filter documents before date
   -docName string
         filter documents with string in name
+  -concurrency int
+        number of concurrent downloads (default 4)
+  -downloadDir string
+        directory to store downloaded PDFs (default "./downloads")
+  -download
+        download matching PDFs to disk
   -meetingType string
         filter documents by meeting type
   -year int
         filter documents by year (default -1)
 ```
+
+Pass `-download` to save files under `downloadDir` using normalized names such as `2024_03_15-CC-agenda.pdf`, matching the `fileName` included in the JSON output.
 
 ## Contributing
 
