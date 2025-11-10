@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"github.com/dntiontk/civic-code/pkg/scraper"
-	"github.com/itlightning/dateparse"
 	"log"
 	"os"
 	"time"
+
+	"github.com/dntiontk/civic-code/pkg/downloader"
+	"github.com/dntiontk/civic-code/pkg/scraper"
+	"github.com/itlightning/dateparse"
 )
 
 var (
@@ -17,6 +19,8 @@ var (
 	afterFlag       string
 	meetingTypeFlag string
 	docNameFlag     string
+	downloadDirFlag string
+	downloadWorkers int
 )
 
 func main() {
@@ -25,6 +29,8 @@ func main() {
 	flag.StringVar(&afterFlag, "after", "", "filter documents after date")
 	flag.StringVar(&meetingTypeFlag, "meetingType", "", "filter documents by meeting type")
 	flag.StringVar(&docNameFlag, "docName", "", "filter documents with string in name")
+	flag.StringVar(&downloadDirFlag, "downloadDir", "./downloads", "directory to store downloaded PDFs")
+	flag.IntVar(&downloadWorkers, "concurrency", 4, "number of concurrent downloads")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -67,14 +73,31 @@ func main() {
 		docs = filter(docs)
 	}
 
+	var downloadErrors []string
+	if len(docs) > 0 {
+		if downloadWorkers < 1 {
+			downloadWorkers = 1
+		}
+		downloaded, err := downloader.DownloadDocuments(ctx, docs, downloadDirFlag, downloadWorkers)
+		if downloaded != nil {
+			docs = downloaded
+		}
+		if err != nil {
+			log.Printf("download errors: %v", err)
+			downloadErrors = append(downloadErrors, err.Error())
+		}
+	}
+
 	type Result struct {
-		Len   int                `json:"len"`
-		Items []scraper.Document `json:"items"`
+		Len    int                `json:"len"`
+		Items  []scraper.Document `json:"items"`
+		Errors []string           `json:"errors,omitempty"`
 	}
 
 	res := &Result{
-		Len:   len(docs),
-		Items: docs,
+		Len:    len(docs),
+		Items:  docs,
+		Errors: downloadErrors,
 	}
 
 	enc := json.NewEncoder(os.Stdout)

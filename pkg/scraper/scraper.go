@@ -71,6 +71,7 @@ type Document struct {
 	Meeting  MeetingType `json:"meeting"`
 	Date     time.Time   `json:"date"`
 	RawTitle string      `json:"rawTitle"`
+	Checksum string      `json:"checksum,omitempty"`
 }
 
 // FilterFunc is a function type that returns a subset of the input documents.
@@ -211,6 +212,7 @@ func parseDocument(link string, title string) (Document, error) {
 		Name:     name,
 		Date:     date,
 		RawTitle: title,
+		Checksum: "",
 	}, nil
 }
 
