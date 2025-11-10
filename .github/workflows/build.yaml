@@ -22,6 +22,8 @@ jobs:
           - GOOS: darwin
             GOARCH: arm64
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       GOOS: ${{ matrix.GOOS }}
       GOARCH: ${{ matrix.GOARCH }}
