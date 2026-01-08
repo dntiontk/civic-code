@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.1] - 2026-01-08
+### :bug: Bug Fixes
+- [`872f7da`](https://github.com/dntiontk/civic-code/commit/872f7dad0e5a15eedd66392046f6539fdaad9e1b) - downloader outputs *(PR [#10](https://github.com/dntiontk/civic-code/pull/10) by [@devinturner](https://github.com/devinturner))*
+
+
 ## [v1.1.0] - 2025-11-10
 ### :sparkles: New Features
 - [`df8913c`](https://github.com/dntiontk/civic-code/commit/df8913c4320397f0e85ce981b3dc28d97cd33d69) - concurrent document download and file normalization *(PR [#8](https://github.com/dntiontk/civic-code/pull/8) by [@devinturner](https://github.com/devinturner))*
@@ -19,3 +24,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [v0.1.0]: https://github.com/dntiontk/civic-code/compare/v0.0.0...v0.1.0
 [v1.1.0]: https://github.com/dntiontk/civic-code/compare/v1.0.0...v1.1.0
+[v1.1.1]: https://github.com/dntiontk/civic-code/compare/v1.1.0...v1.1.1
